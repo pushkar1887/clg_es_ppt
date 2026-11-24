@@ -6,20 +6,24 @@
   <meta name="theme-color" content="#f3f5f2">
   <meta name="description" content="Run six tests on an AT89S52 elevator controller. Inspect the live pins, trigger sensor faults, and step through the logic trace.">
   <title>8051 Elevator Lab</title>
-  <link rel="stylesheet" href="./lab.css?v=2">
-  <script type="module" src="./lab.mjs?v=2"></script>
+  <link rel="stylesheet" href="./lab.css?v=3">
+  <script type="module" src="./lab.mjs?v=3"></script>
 </head>
-<body>
+<body data-view="demo">
   <header class="site-header">
     <div class="header-inner">
       <div class="identity">
         <span class="chip-mark" aria-hidden="true"><span></span></span>
         <div>
           <h1>8051 Elevator Lab</h1>
-          <p>BT–EC–ES701 <span aria-hidden="true">/</span> Embedded System</p>
+          <p>Two-floor elevator on an AT89S52 (8051) <span aria-hidden="true">/</span> BT–EC–ES701 Embedded System</p>
         </div>
       </div>
       <div class="header-actions">
+        <div class="view-switch" role="group" aria-label="View">
+          <button type="button" data-view-option="demo" aria-pressed="true">Demo</button>
+          <button type="button" data-view-option="engineer" aria-pressed="false">Engineer</button>
+        </div>
         <a class="button outline" href="https://github.com/pushkar1887/clg_es_ppt/blob/main/8051-Elevator-Control.pptx" target="_blank" rel="noopener">PowerPoint</a>
         <button id="fullscreen" class="button outline" type="button">Full screen</button>
       </div>
@@ -38,7 +42,7 @@
           <button type="button" data-test="timeout" aria-pressed="false">Travel timeout</button>
         </div>
       </section>
-      <section class="rail-section" aria-labelledby="fault-heading">
+      <section class="rail-section engineer-only" aria-labelledby="fault-heading">
         <h2 id="fault-heading" class="section-label">Fault injection</h2>
         <label class="field">
           <span>Floor 2 sensor</span>
@@ -72,12 +76,12 @@
       <div class="transport" role="group" aria-label="Simulation controls">
         <div class="transport-buttons">
           <button id="play" class="button primary" type="button">Run test</button>
-          <button id="step" class="button outline" type="button">Next event</button>
-          <button id="step-ms" class="button outline" type="button">Step 1 ms</button>
+          <button id="step" class="button outline engineer-only" type="button">Next event</button>
+          <button id="step-ms" class="button outline engineer-only" type="button">Step 1 ms</button>
           <button id="restart" class="button quiet" type="button">Restart test</button>
         </div>
         <div class="transport-settings">
-          <label class="speed">
+          <label class="speed engineer-only">
             <span>Speed</span>
             <select id="speed">
               <option value="0.03">0.03×</option>
@@ -98,7 +102,7 @@
         <section class="panel elevator" aria-labelledby="elevator-heading">
           <div class="panel-header">
             <div><h2 id="elevator-heading">Elevator</h2><p id="motion">Drive off</p></div>
-            <div class="floor-display">
+            <div class="floor-display engineer-only">
               <span>Confirmed floor</span>
               <strong id="indicator">1</strong>
             </div>
@@ -124,7 +128,37 @@
             <button type="button" class="button outline" data-floor="2">Call Floor 2</button>
           </div>
         </section>
-        <section class="panel inspector" aria-labelledby="pin-heading">
+        <section class="panel console demo-only" aria-labelledby="console-heading">
+          <div class="panel-header">
+            <div><h2 id="console-heading">Control panel</h2><p>What the 8051 reads and what it drives</p></div>
+          </div>
+          <div class="readout">
+            <div class="display" role="img" id="display" aria-label="Floor indicator shows 1">
+              <span class="arrow" id="arrow-up" aria-hidden="true">▲</span>
+              <strong id="big-floor" aria-hidden="true">1</strong>
+              <span class="arrow" id="arrow-down" aria-hidden="true">▼</span>
+            </div>
+            <p class="status" id="status">Stopped at Floor 1.</p>
+          </div>
+          <div class="signal-group">
+            <h3>Inputs <span>Port 3 · a closed contact reads 0</span></h3>
+            <ul class="lamps">
+              <li id="lamp-b1"><span class="lamp" aria-hidden="true"></span><span>Floor 1 button<small>B1 · P3.4</small></span><em>released</em></li>
+              <li id="lamp-b2"><span class="lamp" aria-hidden="true"></span><span>Floor 2 button<small>B2 · P3.5</small></span><em>released</em></li>
+              <li id="lamp-s1"><span class="lamp" aria-hidden="true"></span><span>Floor 1 switch<small>S1 · P3.2</small></span><em>closed</em></li>
+              <li id="lamp-s2"><span class="lamp" aria-hidden="true"></span><span>Floor 2 switch<small>S2 · P3.3</small></span><em>open</em></li>
+            </ul>
+          </div>
+          <div class="signal-group">
+            <h3>Output <span>Port 1 → L293D driver</span></h3>
+            <p class="motor" id="motor" data-dir="0"><span class="lamp" aria-hidden="true"></span><span>Motor</span><em id="motor-text">Off</em></p>
+          </div>
+          <div class="console-actions">
+            <label class="toggle"><input type="checkbox" id="s2-fail"> Simulate Floor 2 sensor failure</label>
+            <button id="demo-reset" class="button outline" type="button">Reset controller</button>
+          </div>
+        </section>
+        <section class="panel inspector engineer-only" aria-labelledby="pin-heading">
           <div class="panel-header">
             <div><h2 id="pin-heading">Controller</h2><p>AT89S52 <span aria-hidden="true">/</span> L293D</p></div>
             <span class="state-badge" id="state">IDLE</span>
@@ -162,7 +196,7 @@
       </div>
 
       <div class="instrument-grid">
-        <section class="panel analyzer" aria-labelledby="scope-heading">
+        <section class="panel analyzer engineer-only" aria-labelledby="scope-heading">
           <div class="panel-header scope-header">
             <div><h2 id="scope-heading">Logic analyzer</h2><p id="scope-time">Live · 0 ms</p></div>
             <div class="scope-tabs" role="group" aria-label="Signal group">
@@ -181,7 +215,7 @@
         </section>
         <section class="panel timeline" aria-labelledby="events-heading">
           <div class="panel-header">
-            <div><h2 id="events-heading">Event log</h2><p>Select an event to inspect its signals.</p></div>
+            <div><h2 id="events-heading">Event log</h2><p class="engineer-only">Select an event to inspect its signals.</p><p class="demo-only">What the controller did, newest first.</p></div>
           </div>
           <ol id="events"></ol>
         </section>
