@@ -2,13 +2,23 @@ export const timing = Object.freeze({ startup: 250, debounce: 20, travel: 2_000,
 
 // Millisecond offsets for the simulated contact edges of a single press.
 const contact = [[1, 0], [2, 1], [4, 0], [6, 1], [8, 0], [88, 1]];
-const signals = ["s1", "s2", "b1", "b2", "enable", "accepted"];
+const signals = ["s1", "s2", "b1", "b2", "a1", "a2", "p12", "enable", "accepted"];
+const s2SwitchEvents = new Map([
+  ["normal", ["S2 restored", "S2 follows the car position."]],
+  ["open", ["S2 held open", "The Floor 2 input will read high."]],
+  ["short", ["S2 shorted to ground", "The Floor 2 input will read low."]],
+]);
+
+function validateS2Mode(mode) {
+  if (!s2SwitchEvents.has(mode)) throw new RangeError("S2 mode must be normal, open, or short.");
+}
 
 export class ElevatorController {
-  constructor({ floor = 1, s2Open = false } = {}) {
+  constructor({ floor = 1, s2Open = false, s2Mode = s2Open ? "open" : "normal" } = {}) {
+    validateS2Mode(s2Mode);
     this.time = 0;
     this.car = floor === 2 ? timing.travel : 0;
-    this.s2Open = s2Open;
+    this.s2Mode = s2Mode;
     this.events = [];
     this.trace = [];
     this.sequence = 0;
@@ -16,18 +26,24 @@ export class ElevatorController {
   }
 
   get sensors() {
-    return [Number(this.car !== 0), Number(this.car !== timing.travel || this.s2Open)];
+    const s1 = Number(this.car !== 0);
+    const s2 = this.s2Mode === "short" ? 0 : Number(this.car !== timing.travel || this.s2Open);
+    return [s1, s2];
+  }
+
+  get s2Open() {
+    return this.s2Mode === "open";
   }
 
   get hasWork() {
     return this.state === "STARTUP" || this.state === "MOVING" || this.edges.length > 0 ||
-      this.samples.some((sample) => sample.raw !== sample.stable);
+      this.samples.some((sample) => sample.raw !== sample.stable) ||
+      (this.state === "IDLE" && this.#contradictorySensors);
   }
 
   snapshot() {
-    const [s1, s2] = this.sensors;
     return {
-      time: this.time,
+      ...this.#sampleSignals(),
       position: this.car / timing.travel,
       state: this.state,
       currentFloor: this.currentFloor,
@@ -35,15 +51,8 @@ export class ElevatorController {
       direction: this.enable ? this.direction : 0,
       elapsed: this.state === "MOVING" ? this.time - this.tripStart : this.elapsed,
       fault: this.fault,
+      s2Mode: this.s2Mode,
       s2Open: this.s2Open,
-      s1,
-      s2,
-      b1: this.buttons[0],
-      b2: this.buttons[1],
-      a1: this.a1,
-      a2: this.a2,
-      enable: this.enable,
-      accepted: this.accepted,
     };
   }
 
@@ -67,14 +76,14 @@ export class ElevatorController {
   }
 
   setS2Open(open) {
-    const next = Boolean(open);
-    if (this.s2Open === next) return;
-    this.s2Open = next;
-    this.#event(
-      "switch",
-      next ? "S2 held open" : "S2 restored",
-      next ? "The Floor 2 input will read high." : "S2 follows the car position.",
-    );
+    this.setS2Mode(open ? "open" : "normal");
+  }
+
+  setS2Mode(mode) {
+    validateS2Mode(mode);
+    if (this.s2Mode === mode) return;
+    this.s2Mode = mode;
+    this.#event("switch", ...s2SwitchEvents.get(mode));
     this.#capture();
   }
 
@@ -90,6 +99,11 @@ export class ElevatorController {
       this.#tick();
       if (stop?.(this)) break;
     }
+  }
+
+  get #contradictorySensors() {
+    const [s1, s2] = this.sensors;
+    return s1 === 0 && s2 === 0;
   }
 
   #tick() {
@@ -109,6 +123,10 @@ export class ElevatorController {
       } else {
         this.#fault(s1 === 1 ? "unknown position" : "contradictory sensors");
       }
+    }
+
+    if ((this.state === "IDLE" || this.state === "MOVING") && this.#contradictorySensors) {
+      this.#fault("contradictory sensors");
     }
 
     if (this.state === "MOVING") {
@@ -176,13 +194,32 @@ export class ElevatorController {
   }
 
   #event(kind, title, detail) {
-    this.events.push({ id: ++this.sequence, time: this.time, kind, title, detail });
+    this.events.push({
+      id: ++this.sequence, time: this.time, kind, title, detail, fault: this.fault,
+      signals: this.#sampleSignals(),
+    });
     if (this.events.length > 48) this.events.shift();
   }
 
-  #capture() {
+  #sampleSignals() {
     const [s1, s2] = this.sensors;
-    const sample = { time: this.time, s1, s2, b1: this.buttons[0], b2: this.buttons[1], enable: this.enable, accepted: this.accepted };
+    return {
+      time: this.time,
+      s1,
+      s2,
+      b1: this.buttons[0],
+      b2: this.buttons[1],
+      a1: this.a1,
+      a2: this.a2,
+      // P1.2 is the active-low command before the enable inverter.
+      p12: Number(!this.enable),
+      enable: this.enable,
+      accepted: this.accepted,
+    };
+  }
+
+  #capture() {
+    const sample = this.#sampleSignals();
     const previous = this.trace.at(-1);
     if (!previous || signals.some((signal) => sample[signal] !== previous[signal])) this.trace.push(sample);
     if (this.trace.length > 500) this.trace.shift();
