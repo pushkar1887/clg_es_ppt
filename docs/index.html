@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f5f1">
+  <meta name="description" content="Run six tests on a two-floor 8051 elevator controller and inspect the simulated GPIO signals.">
+  <title>8051 Elevator Lab</title>
+  <link rel="stylesheet" href="./lab.css">
+  <script type="module" src="./lab.mjs"></script>
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <div class="identity">
+        <div class="chip-icon" aria-hidden="true"><span></span></div>
+        <div>
+          <p class="course">BT–EC–ES701 <span>·</span> Embedded System</p>
+          <h1>8051 Elevator Lab</h1>
+        </div>
+      </div>
+      <button id="fullscreen" class="button outline" type="button">Full screen</button>
+    </header>
+    <main class="workbench" aria-label="Two-floor elevator simulator">
+      <section class="tests panel" aria-labelledby="test-heading">
+        <h2 id="test-heading">Demo tests</h2>
+        <div class="test-list" role="group" aria-label="Choose a test">
+          <button type="button" data-test="startup" aria-pressed="true">Power on</button>
+          <button type="button" data-test="debounce" aria-pressed="false">Button debounce</button>
+          <button type="button" data-test="up" aria-pressed="false">Go to Floor 2</button>
+          <button type="button" data-test="down" aria-pressed="false">Return to Floor 1</button>
+          <button type="button" data-test="same" aria-pressed="false">Same-floor request</button>
+          <button type="button" data-test="timeout" aria-pressed="false">Travel timeout</button>
+        </div>
+        <div class="test-expectation">
+          <h3>Watch for</h3>
+          <p id="expectation">S1 is low. The controller confirms Floor 1 and enters IDLE with drive off.</p>
+        </div>
+        <div class="playback" role="group" aria-label="Test playback">
+          <button id="play" class="button primary" type="button">Run test</button>
+          <button id="step" class="button outline" type="button">Next event</button>
+          <button id="restart" class="button subtle" type="button">Restart test</button>
+        </div>
+      </section>
+
+      <section class="elevator panel" aria-labelledby="elevator-heading">
+        <div class="panel-head">
+          <div>
+            <h2 id="elevator-heading">Elevator</h2>
+            <p id="motion" class="muted">Drive off</p>
+          </div>
+          <div class="floor-readout" aria-label="Last confirmed floor">
+            <span>Floor</span>
+            <strong id="indicator">—</strong>
+          </div>
+        </div>
+        <div class="shaft" id="shaft" role="img" aria-label="Car at Floor 1">
+          <div class="shaft-wall" aria-hidden="true"></div>
+          <div class="landing upper" aria-hidden="true">
+            <span class="floor-label">F2</span><span class="landing-sensor" id="s2Tag">S2</span>
+          </div>
+          <div class="landing lower" aria-hidden="true">
+            <span class="floor-label">F1</span><span class="landing-sensor active" id="s1Tag">S1</span>
+          </div>
+          <div class="car" id="car" aria-hidden="true">
+            <span class="car-door"></span><span class="car-door"></span>
+          </div>
+        </div>
+        <div class="floor-controls" role="group" aria-label="Manual floor requests">
+          <button type="button" class="button outline" data-floor="1" disabled>Call Floor 1</button>
+          <button type="button" class="button outline" data-floor="2" disabled>Call Floor 2</button>
+        </div>
+        <div class="fault-controls">
+          <label class="toggle-label"><input id="s2Open" type="checkbox"> Hold S2 open</label>
+          <button id="reset" type="button" class="button subtle">Reset controller</button>
+        </div>
+      </section>
+
+      <section class="monitor panel" aria-labelledby="monitor-heading">
+        <div class="panel-head">
+          <div>
+            <h2 id="monitor-heading">Signal monitor</h2>
+            <p class="muted">AT89S52 <span aria-hidden="true">/</span> L293D</p>
+          </div>
+          <div class="state-label" id="stateLabel"><span></span><strong id="state">STARTUP</strong></div>
+        </div>
+        <dl class="signals">
+          <div><dt>S1</dt><dd id="s1" class="active">0</dd></div>
+          <div><dt>S2</dt><dd id="s2">1</dd></div>
+          <div><dt>EN</dt><dd id="enable">0</dd></div>
+          <div><dt>1A / 2A</dt><dd id="bridge">1 / 1</dd></div>
+          <div><dt>Current floor</dt><dd id="current">—</dd></div>
+          <div><dt>Target floor</dt><dd id="target">—</dd></div>
+          <div><dt>Travel time</dt><dd id="elapsed">0.000 s</dd></div>
+        </dl>
+
+        <div class="scope">
+          <div class="scope-head">
+            <h3>Logic trace</h3>
+            <span id="scopeRange">0–350 ms</span>
+          </div>
+          <canvas id="trace" role="img" aria-label="Simulated floor sensor and enable traces"></canvas>
+        </div>
+        <div class="event-panel">
+          <h3>Controller events</h3>
+          <ol id="events"></ol>
+        </div>
+      </section>
+    </main>
+    <footer class="model-notes">
+      <span>1 ms timer tick</span>
+      <span>20 ms debounce</span>
+      <span>2 s model travel</span>
+      <span>4 s travel deadline</span>
+      <span>S1 / S2 active-low</span>
+    </footer>
+    <p id="announcement" class="visually-hidden" aria-live="polite"></p>
+  </div>
+</body>
+</html>
